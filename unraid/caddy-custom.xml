@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Container version="2">
+  <Name>Caddy-Custom</Name>
+  <Repository>ctrlcmdshft/caddy-custom:build-34157931523-1</Repository>
+  <Registry>https://hub.docker.com/r/ctrlcmdshft/caddy-custom</Registry>
+  <Network>br0</Network>
+  <MyIP/>
+  <Privileged>false</Privileged>
+  <Shell>sh</Shell>
+  <Support>https://github.com/ctrlcmdshft/caddy-custom/issues</Support>
+  <Project>https://github.com/ctrlcmdshft/caddy-custom</Project>
+  <Overview>Caddy reverse proxy with built-in Porkbun DNS support and automatic Docker label discovery. Provides HTTPS certificates using DNS validation and supports an existing Caddyfile. Modules are compiled into the image for fast startup without rebuilding. Connect proxied containers and this container to the shared caddy-proxy network. Enter Porkbun credentials locally in Unraid; this template contains no credentials. Caddy has no built-in dashboard.</Overview>
+  <Category>Network:Proxy</Category>
+  <WebUI/>
+  <TemplateURL/>
+  <Icon/>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>Before starting: select an unused fixed br0 address outside the router DHCP pool, and prepare the appdata folder with your Caddyfile. When migrating, copy existing certificate data and config with both containers stopped for the final copy. Never share writable appdata between two running proxies. Attach this container to caddy-proxy after creation and after GUI recreation using your network repair script; include its exact container name in that script. Keep the admin API on localhost:2019. The private GitHub repository requires authenticated download; no automatic template URL is configured. The repository currently uses the tested build tag until stable is published.</Requires>
+  <Config Name="Appdata and Caddyfile" Target="/etc/caddy" Default="/mnt/user/appdata/caddy-custom" Mode="rw" Description="Folder containing Caddyfile, data and config. Data includes certificates and private keys. For an existing installation, select its actual appdata path; changing this path does not move files. Prepare Caddyfile before starting." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/caddy-custom</Config>
+  <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="ro" Description="Required for Docker label discovery. Read-only mount mode does not make the Docker API read-only; only use trusted images with this socket." Type="Path" Display="always" Required="true" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="HTTP" Target="80" Default="80" Mode="tcp" Description="HTTP listener, normally redirects to HTTPS. With a dedicated br0 IP, clients use port 80 on that IP. If switching to bridge networking, choose an available host port." Type="Port" Display="always" Required="true" Mask="false">80</Config>
+  <Config Name="HTTPS" Target="443" Default="443" Mode="tcp" Description="HTTPS listener. With a dedicated br0 IP, clients use port 443 on that IP." Type="Port" Display="always" Required="true" Mask="false">443</Config>
+  <Config Name="HTTP/3" Target="443" Default="443" Mode="udp" Description="QUIC / HTTP/3 listener on UDP 443." Type="Port" Display="always" Required="true" Mask="false">443</Config>
+  <Config Name="Porkbun API Key" Target="PORKBUN_API_KEY" Default="" Mode="" Description="Enter your Porkbun API key locally. Reference it in the Caddyfile as {env.PORKBUN_API_KEY}. Masking hides the display but does not encrypt Unraid's saved configuration." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Porkbun API Secret Key" Target="PORKBUN_API_SECRET_KEY" Default="" Mode="" Description="Enter your Porkbun API secret locally. Reference it as {env.PORKBUN_API_SECRET_KEY}. Never upload your populated local template to GitHub." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Certificate Storage Root" Target="XDG_DATA_HOME" Default="/etc/caddy/data" Mode="" Description="Preserves certificate storage under the appdata mount. Keep this value when migrating the existing directory layout." Type="Variable" Display="advanced" Required="true" Mask="false">/etc/caddy/data</Config>
+  <Config Name="Configuration Storage Root" Target="XDG_CONFIG_HOME" Default="/etc/caddy/config" Mode="" Description="Stores generated configuration and autosaves under the appdata mount." Type="Variable" Display="advanced" Required="true" Mask="false">/etc/caddy/config</Config>
+</Container>
