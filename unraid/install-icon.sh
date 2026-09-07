@@ -1,7 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 umask 077
-icon_source=${1:?Pass the downloaded PNG path}
+icon_source=${1:-}
+if [ -z "$icon_source" ]; then
+    icon_source=$(mktemp /tmp/caddy-icon.XXXXXX)
+    trap 'rm -f "$icon_source"' EXIT
+    curl --fail --silent --show-error --location \
+      https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/assets/caddy-custom-mixed-icon.png \
+      -o "$icon_source"
+fi
 template=/boot/config/plugins/dockerMan/templates-user/my-Caddy-Custom.xml
 icon_dir=/boot/config/plugins/dockerMan/icons
 icon_path="$icon_dir/caddy-custom.png"
@@ -19,7 +26,7 @@ libxml_use_internal_errors(true);
 $x=simplexml_load_file($p);
 if (!$x || (string)$x->Name !== 'Caddy-Custom') {fwrite(STDERR,"Unexpected template; stopped.\n");exit(1);}
 unset($x->Icon);
-$x->addChild('Icon','file:///boot/config/plugins/dockerMan/icons/caddy-custom.png');
+$x->addChild('Icon','https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/assets/caddy-custom-mixed-icon.png');
 if ($x->asXML($p) === false) {fwrite(STDERR,"Template write failed. Restore icon backup.\n");exit(1);}
 PHP
 for cache in /var/lib/docker/unraid/images /usr/local/emhttp/state/plugins/dynamix.docker.manager/images; do

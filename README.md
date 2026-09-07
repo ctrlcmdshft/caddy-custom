@@ -49,17 +49,15 @@ The custom illustration combines a blue container whale, green HTTPS lock and
 orange server bays. It is an unofficial illustration, not an official combined
 product logo. The original PNG is saved in assets/caddy-custom-mixed-icon.png.
 
-Because this repository is private, the template uses a local file URL rather
-than an authenticated GitHub raw URL. Download the PNG and unraid/install-icon.sh
-while signed into GitHub, copy them to Unraid, and run:
+The public template references the PNG directly from GitHub. To update an existing
+Caddy-Custom container's local template and icon cache, download and run the installer:
 
 ```bash
-bash install-icon.sh /path/to/caddy-custom-mixed-icon.png
+curl -fL https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/unraid/install-icon.sh -o /tmp/caddy-install-icon.sh
+bash /tmp/caddy-install-icon.sh
 ```
 
-The installer targets the saved my-Caddy-Custom.xml template, backs it up locally,
-changes only its Icon field, installs the PNG on the flash drive and refreshes
-both Unraid icon cache locations. It does not restart the container or print
-credentials. Refresh the browser after installation. Install the icon before
-using the reusable template. This file-URL approach follows Unraid's current
-Docker manager icon downloader; verify it on your installed Unraid version.
+The installer downloads the PNG, backs up the populated local template, changes
+only its Icon field, and refreshes the icon caches. It does not restart Caddy or
+print credentials. Refresh the Unraid Docker page afterward. The local template
+and its backup contain credentials and must remain on your server.
