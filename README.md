@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/caddy-custom-mixed-icon.png" alt="Caddy Custom" width="112" height="112">
+  <img src="" alt="Caddy Custom" width="112" height="112">
 </p>
 
 <h1 align="center">Caddy Custom</h1>
