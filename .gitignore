@@ -6,5 +6,6 @@
 !.github/
 !.github/workflows/
 !.github/workflows/candidate.yml
+!.github/workflows/promote.yml
 !unraid/
 !unraid/caddy-custom.xml

@@ -1,0 +1,44 @@
+name: Promote tested image to stable
+on:
+  workflow_dispatch:
+    inputs:
+      tested_tag:
+        description: Exact build tag already tested on your server
+        required: true
+        default: build-34157931523-1
+permissions:
+  contents: read
+concurrency:
+  group: publish-stable
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+      TESTED_TAG: ${{ inputs.tested_tag }}
+    steps:
+      - name: Validate settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._-]*$ ]]
+          [[ "$TESTED_TAG" =~ ^build-[0-9]+-[0-9]+$ ]]
+      - name: Sign in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Promote without rebuilding
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE:$TESTED_TAG"
+          source_id=$(docker image inspect -f '{{.Id}}' "$IMAGE:$TESTED_TAG")
+          docker tag "$IMAGE:$TESTED_TAG" "$IMAGE:stable"
+          docker push "$IMAGE:stable"
+          docker pull "$IMAGE:stable"
+          stable_id=$(docker image inspect -f '{{.Id}}' "$IMAGE:stable")
+          test "$source_id" = "$stable_id"
+          printf 'Promoted `%s:%s` to `stable` without rebuilding.\n\nImage ID: `%s`\n' "$IMAGE" "$TESTED_TAG" "$stable_id" >> "$GITHUB_STEP_SUMMARY"
