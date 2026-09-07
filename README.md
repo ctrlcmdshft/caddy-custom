@@ -20,9 +20,12 @@ the existing installation. The workflow checks the compiled version and modules,
 then publishes candidate and a unique build tag. These checks do not test live
 TLS, DNS issuance, or application routing. Test those on an isolated container.
 
-No stable tag is published and no server is updated by this initial workflow.
-Automated upstream version proposals and promotion of a tested image to stable
-will be added after the initial build and migration baseline are verified.
+The candidate workflow never updates stable. Use the separate Promote tested image
+to stable workflow with an exact tested build tag to promote without rebuilding.
+The workflow verifies that the pulled stable image has the same image ID.
+Unraid can track stable while installation remains user-controlled.
+Automated upstream version proposals are still pending; builds currently use
+manually supplied versions. No workflow directly changes the running server.
 
 The container expects /etc/caddy/Caddyfile and uses /etc/caddy/data and
 /etc/caddy/config as XDG storage roots. Its default ingress network is caddy-proxy;
