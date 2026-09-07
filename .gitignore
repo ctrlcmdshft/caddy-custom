@@ -9,3 +9,6 @@
 !.github/workflows/promote.yml
 !unraid/
 !unraid/caddy-custom.xml
+!assets/
+!assets/caddy-custom-mixed-icon.png
+!unraid/install-icon.sh

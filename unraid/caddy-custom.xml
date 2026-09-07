@@ -13,7 +13,7 @@
   <Category>Network:Proxy</Category>
   <WebUI/>
   <TemplateURL/>
-  <Icon/>
+  <Icon>file:///boot/config/plugins/dockerMan/icons/caddy-custom.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
