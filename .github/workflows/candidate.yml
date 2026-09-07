@@ -1,0 +1,66 @@
+name: Build candidate
+on:
+  workflow_dispatch:
+    inputs:
+      caddy_version:
+        description: Caddy version without the v prefix
+        required: true
+        default: '2.11.4'
+      porkbun_version:
+        description: Exact Porkbun module version from the live binary
+        required: true
+      docker_proxy_version:
+        description: Exact docker-proxy module version from the live binary
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: publish-candidate
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+      CADDY_VERSION: ${{ inputs.caddy_version }}
+      PORKBUN_VERSION: ${{ inputs.porkbun_version }}
+      DOCKER_PROXY_VERSION: ${{ inputs.docker_proxy_version }}
+      BUILD_TAG: build-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._-]*$ ]]
+          [[ "$CADDY_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$PORKBUN_VERSION" =~ ^v[0-9][a-zA-Z0-9.+-]*$ ]]
+          [[ "$DOCKER_PROXY_VERSION" =~ ^v[0-9][a-zA-Z0-9.+-]*$ ]]
+      - name: Build and smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull \
+            --build-arg "CADDY_VERSION=$CADDY_VERSION" \
+            --build-arg "PORKBUN_VERSION=$PORKBUN_VERSION" \
+            --build-arg "DOCKER_PROXY_VERSION=$DOCKER_PROXY_VERSION" \
+            -t "$IMAGE:$BUILD_TAG" .
+          actual=$(docker run --rm --network none "$IMAGE:$BUILD_TAG" version)
+          [[ "$actual" == "v$CADDY_VERSION "* ]]
+          docker run --rm --network none "$IMAGE:$BUILD_TAG" list-modules > /tmp/modules.txt
+          grep -Fx dns.providers.porkbun /tmp/modules.txt
+          grep -Fx docker_proxy /tmp/modules.txt
+          docker run --rm --network none "$IMAGE:$BUILD_TAG" docker-proxy --help
+      - name: Sign in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish candidate only
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:$BUILD_TAG"
+          docker tag "$IMAGE:$BUILD_TAG" "$IMAGE:candidate"
+          docker push "$IMAGE:candidate"
