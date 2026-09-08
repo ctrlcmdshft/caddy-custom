@@ -1,0 +1,65 @@
+name: Check upstream versions
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '21 9 * * 1'
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: check-upstream
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CURRENT_CADDY: '2.11.4'
+      CURRENT_PORKBUN: 'v0.3.1'
+      CURRENT_DOCKER_PROXY: 'v2.13.1'
+      ISSUE_TITLE: Upstream Caddy Custom versions are available
+    steps:
+      - name: Check latest releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          latest_release_or_tag() {
+            local repo=$1
+            local latest
+            if latest=$(gh api "repos/$repo/releases/latest" --jq '.tag_name' 2>/dev/null); then
+              printf '%s\n' "$latest"
+              return
+            fi
+            gh api "repos/$repo/tags" --jq '.[0].name'
+          }
+
+          latest_caddy=$(latest_release_or_tag caddyserver/caddy | sed 's/^v//')
+          latest_porkbun=$(latest_release_or_tag caddy-dns/porkbun)
+          latest_docker_proxy=$(latest_release_or_tag lucaslorentz/caddy-docker-proxy)
+
+          {
+            echo "Current tracked versions:"
+            echo
+            echo "| Component | Current | Latest |"
+            echo "| --- | --- | --- |"
+            echo "| Caddy | \`$CURRENT_CADDY\` | \`$latest_caddy\` |"
+            echo "| caddy-dns/porkbun | \`$CURRENT_PORKBUN\` | \`$latest_porkbun\` |"
+            echo "| caddy-docker-proxy | \`$CURRENT_DOCKER_PROXY\` | \`$latest_docker_proxy\` |"
+            echo
+            echo "If these versions should be tested, run the candidate workflow with the latest values, test the candidate on Unraid, then promote the exact tested build tag to stable."
+          } > /tmp/upstream-body.md
+
+          if [[ "$CURRENT_CADDY" == "$latest_caddy" && "$CURRENT_PORKBUN" == "$latest_porkbun" && "$CURRENT_DOCKER_PROXY" == "$latest_docker_proxy" ]]; then
+            echo "No newer upstream versions found."
+            exit 0
+          fi
+
+          existing=$(gh issue list --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number // empty')
+          if [[ -n "$existing" ]]; then
+            gh issue edit "$existing" --body-file /tmp/upstream-body.md
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file /tmp/upstream-body.md
+          fi

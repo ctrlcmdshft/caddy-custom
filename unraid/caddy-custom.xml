@@ -13,7 +13,7 @@
   <Category>Network:Proxy</Category>
   <WebUI/>
   <TemplateURL>https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/unraid/caddy-custom.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/assets/caddy-custom-mixed-icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/assets/caddy-custom-icon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>

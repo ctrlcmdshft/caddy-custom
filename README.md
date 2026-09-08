@@ -1,164 +1,110 @@
 <p align="center">
-  <img src="" alt="Caddy Custom" width="112" height="112">
+  <img src="assets/caddy-custom-icon.png" alt="Caddy Custom" width="112" height="112">
 </p>
 
 <h1 align="center">Caddy Custom</h1>
 
 <p align="center">
-  HTTPS reverse proxy with Porkbun DNS and Docker label discovery.<br>
-  Built once. Ready at every start.
-</p>
-
-<p align="center">
-  <a href="https://hub.docker.com/r/ctrlcmdshft/caddy-custom/tags">Docker tags</a> ·
-  <a href="unraid/caddy-custom.xml">Unraid template</a> ·
-  <a href="https://github.com/ctrlcmdshft/caddy-custom/actions">Builds</a> ·
-  <a href="https://github.com/ctrlcmdshft/caddy-custom/issues">Issues</a>
+  Prebuilt Caddy image for Unraid with Porkbun DNS and Docker label discovery.
 </p>
 
 <p align="center">
   <a href="https://github.com/ctrlcmdshft/caddy-custom/actions/workflows/candidate.yml"><img src="https://github.com/ctrlcmdshft/caddy-custom/actions/workflows/candidate.yml/badge.svg" alt="Candidate build status"></a>
+  <a href="https://hub.docker.com/r/ctrlcmdshft/caddy-custom/tags"><img src="https://img.shields.io/badge/Docker_Hub-tags-2496ED" alt="Docker Hub tags"></a>
   <img src="https://img.shields.io/badge/platform-linux%2Famd64-blue" alt="Platform: linux/amd64">
-  <img src="https://img.shields.io/badge/registry-Docker_Hub-2496ED" alt="Registry: Docker Hub">
 </p>
 
-## What’s included
+## What It Is
 
-- **Caddy:** automatic HTTPS and reverse proxying through an existing Caddyfile.
-- **Porkbun DNS provider:** DNS challenges for certificate issuance and renewal, including wildcard certificates.
-- **Docker discovery:** routes generated from container labels using caddy-docker-proxy.
-- **Precompiled modules:** no Go toolchain or module compilation during container startup.
-- **Unraid template:** documented settings, masked credential fields, and a custom icon.
+This image builds Caddy once in GitHub Actions instead of compiling modules every
+time the Unraid container starts. It includes:
 
-This is an independent custom image built from the official Caddy images. Runtime configuration, domains, credentials, and certificate data are supplied locally.
+- Caddy `2.11.4`
+- `github.com/caddy-dns/porkbun` for Porkbun DNS challenges
+- `github.com/lucaslorentz/caddy-docker-proxy/v2` for Docker label discovery
+- A public Unraid template with empty, masked Porkbun credential fields
 
-## Docker image tags
+Runtime configuration, domains, API keys, certificates and appdata stay on your
+Unraid server. They are not stored in this repository.
 
-Image repository: **`ctrlcmdshft/caddy-custom`** · Platform: **`linux/amd64`**
+## Docker Tags
 
-| Tag | Purpose | Update behavior |
-| --- | --- | --- |
-| `stable` | Recommended for normal use | Moves only when a tested build is manually promoted |
-| `candidate` | Test new builds before promotion | Moves after each successful candidate workflow |
-| `build-<run-id>-<attempt>` | Select a specific build or roll back | Unique tag published by each build run |
+Image: `ctrlcmdshft/caddy-custom`
 
-```bash
-docker pull ctrlcmdshft/caddy-custom:stable
+| Tag | Use |
+| --- | --- |
+| `stable` | Normal Unraid use. Updated only after a tested build is promoted. |
+| `candidate` | Trial builds before promotion. |
+| `build-<run-id>-<attempt>` | Fixed build tag for testing or rollback. |
+
+There is no `latest` tag. Use `stable` in the Unraid template unless you are
+testing a specific candidate.
+
+## Unraid Template
+
+Template URL:
+
+```text
+https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/unraid/caddy-custom.xml
 ```
 
-There is no `latest` tag in the current workflows. Use `stable` to track approved updates, or retain a build tag for rollback. Tags are registry references; use an image digest when immutable pinning is required.
+The template sets:
 
-### Initial stable build
+- Repository: `ctrlcmdshft/caddy-custom:stable`
+- Appdata: `/mnt/user/appdata/caddy-custom` mounted at `/etc/caddy`
+- Docker socket: `/var/run/docker.sock`
+- Ports: TCP `80`, TCP `443`, UDP `443`
+- Porkbun variables: `PORKBUN_API_KEY` and `PORKBUN_API_SECRET_KEY`
+- Storage paths: `XDG_DATA_HOME=/etc/caddy/data` and `XDG_CONFIG_HOME=/etc/caddy/config`
 
-| Component | Version |
-| --- | --- |
-| Caddy | `2.11.4` |
-| caddy-dns/porkbun | `0.3.1` |
-| caddy-docker-proxy | `2.13.1` |
-| Build tag | `build-34157931523-1` |
-
-These describe the initial release, not a live report of upstream versions. Check the workflow run associated with a newer build for its selected versions.
-
-## Install on Unraid
-
-1. Download the [template XML](https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/unraid/caddy-custom.xml) to `/boot/config/plugins/dockerMan/templates-user/my-Caddy-Custom.xml`. **Do not overwrite an existing populated template**; it may contain your local credentials and settings.
-2. In **Docker → Add Container**, select **Caddy-Custom**.
-3. Choose an unused fixed IP on `br0`, outside the router’s DHCP pool. Docker’s IP allocation does not check router leases.
-4. Select the appdata directory and prepare its `Caddyfile` before starting. Enter both Porkbun credentials locally.
-5. Apply, then attach the container to the existing application network:
+Choose an unused fixed `br0` IP in Unraid. After creating or recreating the
+container, attach it to your shared proxy network:
 
 ```bash
 docker network connect caddy-proxy Caddy-Custom
 ```
 
-Application containers referenced by Docker name must also join `caddy-proxy`. A GUI edit or image update may recreate the proxy and remove its secondary network attachment. Use a local network-repair script at array startup and periodically, or reconnect manually after changes. This repository does not install that script.
+Containers referenced by Docker name in the Caddyfile also need to be attached
+to `caddy-proxy`.
 
-For an existing installation, keep its actual appdata path. Importing a template does not move files, configure DNS, or migrate an existing container.
+## Startup Command
 
-## Configuration reference
-
-| Setting | Value or purpose |
-| --- | --- |
-| Appdata mount | Local appdata directory → `/etc/caddy` |
-| Base configuration | `/etc/caddy/Caddyfile` |
-| Certificate storage root | `XDG_DATA_HOME=/etc/caddy/data` |
-| Configuration storage root | `XDG_CONFIG_HOME=/etc/caddy/config` |
-| Docker socket | `/var/run/docker.sock` → `/var/run/docker.sock` |
-| Porkbun API key | `PORKBUN_API_KEY` — entered locally |
-| Porkbun API secret | `PORKBUN_API_SECRET_KEY` — entered locally |
-| HTTP | TCP `80` |
-| HTTPS | TCP `443` |
-| HTTP/3 | UDP `443` |
-| Admin API | Keep bound to `localhost:2019`; no host port mapping is needed |
-
-Caddy stores its certificate files beneath the data root’s `caddy` subdirectory. Preserve the complete data and config directories during migration.
-
-The image starts with:
+The image starts Caddy with:
 
 ```text
 caddy docker-proxy --caddyfile-path /etc/caddy/Caddyfile --ingress-networks caddy-proxy
 ```
 
-Leave Unraid **Extra Parameters** and **Post Arguments** blank for this default setup. Do not retain an old entrypoint that invokes a build script. The image does not need `CADDY_MODULES`, `CADDY_VERSION_OVERRIDE`, `CADDY_KEEP_BUILD_CACHE`, or the generic `DNS_API_TOKEN` field.
+Leave Unraid Extra Parameters and Post Arguments blank for the normal setup.
+Do not keep old Caddy-Modular build fields such as `CADDY_MODULES`,
+`CADDY_VERSION_OVERRIDE`, `CADDY_KEEP_BUILD_CACHE` or `DNS_API_TOKEN`.
 
-Both Porkbun credentials remain necessary for future certificate renewals. In the Caddyfile, reference them as `{env.PORKBUN_API_KEY}` and `{env.PORKBUN_API_SECRET_KEY}`. Caddy does not provide a built-in dashboard.
+Both Porkbun values are required for new certificates and future renewals.
 
-## Build and release workflow
+## Releases
 
-### 1. Build a candidate
+The candidate workflow builds and tests the selected Caddy/plugin versions, then
+pushes a unique build tag and updates `candidate`. The promote workflow retags a
+tested build as `stable` without rebuilding it.
 
-Run [Build candidate](https://github.com/ctrlcmdshft/caddy-custom/actions/workflows/candidate.yml) with the desired Caddy version and exact plugin versions. The workflow:
+A weekly upstream check opens or updates a GitHub issue when newer Caddy or
+plugin releases are available. It does not build images or update `stable`.
 
-1. Compiles the selected versions into an image.
-2. Checks the Caddy version, required modules, and docker-proxy command.
-3. Publishes a unique build tag and updates `candidate`.
+Required repository settings:
 
-These checks do not verify your DNS credentials, certificate renewal, or application behavior. Test the candidate on a separate IP with a separate appdata copy before promotion.
-
-### 2. Promote a tested image
-
-Run [Promote tested image to stable](https://github.com/ctrlcmdshft/caddy-custom/actions/workflows/promote.yml) with the exact tested build tag. It retags the existing image without rebuilding, publishes `stable`, and verifies that the pulled stable image has the same image ID.
-
-### 3. Update Unraid
-
-Check for updates on the container tracking `stable`, install when ready, and restore its `caddy-proxy` attachment. Keep a known-good build tag and appdata backup for rollback.
-
-**Upstream version checks are not automated yet.** Both workflows are currently started manually, and neither directly updates a running server.
-
-### Repository settings for maintainers
-
-| GitHub setting | Type | Purpose |
+| Name | Type | Purpose |
 | --- | --- | --- |
-| `DOCKERHUB_USERNAME` | Actions variable | Docker Hub publishing account |
-| `DOCKERHUB_IMAGE` | Actions variable | Image repository in `account/image` format |
-| `DOCKERHUB_TOKEN` | Actions secret | Docker Hub token with publishing access |
+| `DOCKERHUB_USERNAME` | Actions variable | Docker Hub account |
+| `DOCKERHUB_IMAGE` | Actions variable | Docker Hub image, such as `ctrlcmdshft/caddy-custom` |
+| `DOCKERHUB_TOKEN` | Actions secret | Docker Hub publish token |
 
-Porkbun credentials are never needed by these build workflows.
+Porkbun credentials are never needed by GitHub Actions.
 
-## Unraid icon
+## License And Attribution
 
-The template includes the public [icon URL](https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/assets/caddy-custom-mixed-icon.png). To refresh the icon on an existing **Caddy-Custom** installation:
+Original files in this repository are MIT licensed. The image includes upstream
+software under its own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+and the `licenses/` directory.
 
-```bash
-curl -fL \
-  https://raw.githubusercontent.com/ctrlcmdshft/caddy-custom/main/unraid/install-icon.sh \
-  -o /tmp/caddy-install-icon.sh
-
-bash /tmp/caddy-install-icon.sh
-```
-
-The installer backs up the local template, changes only its icon field, and refreshes Unraid’s icon caches. It does not restart Caddy. Refresh the Docker page afterward.
-
-## Credentials and backups
-
-- The published template contains empty credential fields. Masking hides their display; it does not encrypt Unraid’s local XML.
-- Keep populated templates, appdata, certificates, and backups on your server. Do not commit them to this repository.
-- The Docker build context includes only the Dockerfile. The Git allowlist helps prevent accidental additions, but changes still need review.
-- Access to the Docker socket is privileged access to Docker; mounting it read-only does not restrict API operations.
-- During migration, use separate writable appdata directories. Stop both proxies before making the final certificate/configuration copy.
-
-## Upstream projects
-
-[Caddy](https://github.com/caddyserver/caddy) · [Porkbun DNS provider](https://github.com/caddy-dns/porkbun) · [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy)
-
-The custom artwork is an unofficial illustration inspired by container hosting, HTTPS, and server storage. This project is not an official Docker, Caddy, or Unraid product.
+This is an independent project. Docker, Caddy, Porkbun and Unraid names are used
+only to identify compatibility and dependencies.

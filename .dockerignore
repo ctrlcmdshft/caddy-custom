@@ -1,2 +1,8 @@
 *
 !Dockerfile
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!licenses/
+!licenses/**
+!scripts/
+!scripts/collect-notices.sh

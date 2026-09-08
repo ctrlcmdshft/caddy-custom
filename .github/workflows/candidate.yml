@@ -9,9 +9,11 @@ on:
       porkbun_version:
         description: Exact Porkbun module version from the live binary
         required: true
+        default: 'v0.3.1'
       docker_proxy_version:
         description: Exact docker-proxy module version from the live binary
         required: true
+        default: 'v2.13.1'
 permissions:
   contents: read
 concurrency:
@@ -52,6 +54,15 @@ jobs:
           grep -Fx dns.providers.porkbun /tmp/modules.txt
           grep -Fx docker_proxy /tmp/modules.txt
           docker run --rm --network none "$IMAGE:$BUILD_TAG" docker-proxy --help
+          docker run --rm --network none --entrypoint sh "$IMAGE:$BUILD_TAG" -c '
+            test -s /usr/share/licenses/caddy-custom/build-info.txt
+            test -s /usr/share/licenses/caddy-custom/project/LICENSE
+            test -s /usr/share/licenses/caddy-custom/project/THIRD_PARTY_NOTICES.md
+            test -s /usr/share/licenses/caddy-custom/upstream/Caddy-Apache-2.0.txt
+            test -s /usr/share/licenses/caddy-custom/upstream/Porkbun-MIT.txt
+            test -s /usr/share/licenses/caddy-custom/upstream/Docker-Proxy-MIT.txt
+            test -n "$(find /usr/share/licenses/caddy-custom/go-modules -type f -print -quit)"
+          '
       - name: Sign in to Docker Hub
         uses: docker/login-action@v4
         with:
