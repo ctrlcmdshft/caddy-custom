@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
   actions: write
 
 concurrency:
@@ -23,7 +22,6 @@ jobs:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
       IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
-      ISSUE_TITLE: Upstream Caddy Custom versions are available
 
     steps:
       - name: Validate settings
@@ -107,7 +105,7 @@ jobs:
         if: steps.candidate.outputs.up_to_date == 'true'
         run: echo "Candidate already contains the newest upstream versions."
 
-      - name: Create or update upstream issue
+      - name: Report upstream update
         if: steps.candidate.outputs.up_to_date != 'true'
         shell: bash
         env:
@@ -118,34 +116,16 @@ jobs:
           set -euo pipefail
 
           {
-            echo "New upstream versions were detected and an automatic candidate build was requested."
+            echo "New upstream versions were detected and an automatic candidate/stable build was requested."
             echo
             echo "| Component | Latest |"
             echo "| --- | --- |"
             echo "| Caddy | \`$LATEST_CADDY\` |"
             echo "| caddy-dns/porkbun | \`$LATEST_PORKBUN\` |"
             echo "| caddy-docker-proxy | \`$LATEST_DOCKER_PROXY\` |"
-            echo
-            echo "After the candidate build succeeds, test \`:candidate\` on Unraid."
-          } > /tmp/upstream-body.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          existing=$(
-            gh issue list \
-              --state open \
-              --search "$ISSUE_TITLE in:title" \
-              --json number \
-              --jq '.[0].number // empty'
-          )
-
-          if [[ -n "$existing" ]]; then
-            gh issue edit "$existing" --body-file /tmp/upstream-body.md
-          else
-            gh issue create \
-              --title "$ISSUE_TITLE" \
-              --body-file /tmp/upstream-body.md
-          fi
-
-      - name: Start newest candidate build
+      - name: Start newest image build
         if: steps.candidate.outputs.up_to_date != 'true'
         shell: bash
         run: |

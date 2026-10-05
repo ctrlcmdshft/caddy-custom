@@ -117,7 +117,7 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Publish candidate only
+      - name: Publish tested image
         shell: bash
         run: |
           set -euo pipefail
@@ -125,8 +125,11 @@ jobs:
           docker push "$IMAGE:$BUILD_TAG"
           docker tag "$IMAGE:$BUILD_TAG" "$IMAGE:candidate"
           docker push "$IMAGE:candidate"
+          docker tag "$IMAGE:$BUILD_TAG" "$IMAGE:stable"
+          docker push "$IMAGE:stable"
 
           echo "Exact test tag: $IMAGE:$BUILD_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Updated tags: candidate, stable" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update README Caddy version
         shell: bash
