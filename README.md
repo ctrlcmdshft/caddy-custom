@@ -19,7 +19,7 @@
 This image builds Caddy once in GitHub Actions instead of compiling modules every
 time the Unraid container starts. It includes:
 
-- Caddy `2.11.4`
+- Caddy `2.11.6`
 - `github.com/caddy-dns/porkbun` for Porkbun DNS challenges
 - `github.com/lucaslorentz/caddy-docker-proxy/v2` for Docker label discovery
 - A public Unraid template with empty, masked Porkbun credential fields
