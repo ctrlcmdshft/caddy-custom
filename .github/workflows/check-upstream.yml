@@ -1,66 +1,153 @@
 name: Check upstream versions
+
 on:
   workflow_dispatch:
   schedule:
     - cron: '21 9 * * 1'
+
 permissions:
   contents: read
   issues: write
+  actions: write
+
 concurrency:
   group: check-upstream
   cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     env:
       GH_REPO: ${{ github.repository }}
-      CURRENT_CADDY: '2.11.4'
-      CURRENT_PORKBUN: 'v0.3.1'
-      CURRENT_DOCKER_PROXY: 'v2.13.1'
+      GH_TOKEN: ${{ github.token }}
+      IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
       ISSUE_TITLE: Upstream Caddy Custom versions are available
+
     steps:
-      - name: Check latest releases
+      - name: Validate settings
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._-]*$ ]]
+
+      - name: Check latest upstream versions
+        id: versions
+        shell: bash
         run: |
           set -euo pipefail
 
           latest_release_or_tag() {
             local repo=$1
             local latest
+
             if latest=$(gh api "repos/$repo/releases/latest" --jq '.tag_name' 2>/dev/null); then
               printf '%s\n' "$latest"
               return
             fi
+
             gh api "repos/$repo/tags" --jq '.[0].name'
           }
 
-          latest_caddy=$(latest_release_or_tag caddyserver/caddy | sed 's/^v//')
-          latest_porkbun=$(latest_release_or_tag caddy-dns/porkbun)
-          latest_docker_proxy=$(latest_release_or_tag lucaslorentz/caddy-docker-proxy)
+          caddy=$(latest_release_or_tag caddyserver/caddy | sed 's/^v//')
+          porkbun=$(latest_release_or_tag caddy-dns/porkbun)
+          docker_proxy=$(latest_release_or_tag lucaslorentz/caddy-docker-proxy)
 
-          {
-            echo "Current tracked versions:"
-            echo
-            echo "| Component | Current | Latest |"
-            echo "| --- | --- | --- |"
-            echo "| Caddy | \`$CURRENT_CADDY\` | \`$latest_caddy\` |"
-            echo "| caddy-dns/porkbun | \`$CURRENT_PORKBUN\` | \`$latest_porkbun\` |"
-            echo "| caddy-docker-proxy | \`$CURRENT_DOCKER_PROXY\` | \`$latest_docker_proxy\` |"
-            echo
-            echo "If these versions should be tested, run the candidate workflow with the latest values, test the candidate on Unraid, then promote the exact tested build tag to stable."
-          } > /tmp/upstream-body.md
+          echo "caddy=$caddy" >> "$GITHUB_OUTPUT"
+          echo "porkbun=$porkbun" >> "$GITHUB_OUTPUT"
+          echo "docker_proxy=$docker_proxy" >> "$GITHUB_OUTPUT"
 
-          if [[ "$CURRENT_CADDY" == "$latest_caddy" && "$CURRENT_PORKBUN" == "$latest_porkbun" && "$CURRENT_DOCKER_PROXY" == "$latest_docker_proxy" ]]; then
-            echo "No newer upstream versions found."
-            exit 0
+      - name: Inspect current candidate
+        id: candidate
+        shell: bash
+        env:
+          LATEST_CADDY: ${{ steps.versions.outputs.caddy }}
+          LATEST_PORKBUN: ${{ steps.versions.outputs.porkbun }}
+          LATEST_DOCKER_PROXY: ${{ steps.versions.outputs.docker_proxy }}
+        run: |
+          set -euo pipefail
+
+          up_to_date=false
+
+          if docker pull "$IMAGE:candidate" >/dev/null 2>&1; then
+            docker create --name candidate-check "$IMAGE:candidate" >/dev/null
+
+            docker cp \
+              candidate-check:/usr/share/licenses/caddy-custom/build-info.txt \
+              /tmp/build-info.txt
+
+            docker rm candidate-check >/dev/null
+
+            candidate_caddy=$(
+              docker run --rm --network none "$IMAGE:candidate" version |
+              sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/'
+            )
+
+            candidate_porkbun=$(
+              awk '$1 == "dep" && $2 == "github.com/caddy-dns/porkbun" {print $3}' \
+                /tmp/build-info.txt
+            )
+
+            candidate_docker_proxy=$(
+              awk '$1 == "dep" && $2 == "github.com/lucaslorentz/caddy-docker-proxy/v2" {print $3}' \
+                /tmp/build-info.txt
+            )
+
+            if [[ "$candidate_caddy" == "$LATEST_CADDY" \
+               && "$candidate_porkbun" == "$LATEST_PORKBUN" \
+               && "$candidate_docker_proxy" == "$LATEST_DOCKER_PROXY" ]]; then
+              up_to_date=true
+            fi
           fi
 
-          existing=$(gh issue list --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number // empty')
+          echo "up_to_date=$up_to_date" >> "$GITHUB_OUTPUT"
+
+      - name: Nothing to update
+        if: steps.candidate.outputs.up_to_date == 'true'
+        run: echo "Candidate already contains the newest upstream versions."
+
+      - name: Create or update upstream issue
+        if: steps.candidate.outputs.up_to_date != 'true'
+        shell: bash
+        env:
+          LATEST_CADDY: ${{ steps.versions.outputs.caddy }}
+          LATEST_PORKBUN: ${{ steps.versions.outputs.porkbun }}
+          LATEST_DOCKER_PROXY: ${{ steps.versions.outputs.docker_proxy }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "New upstream versions were detected and an automatic candidate build was requested."
+            echo
+            echo "| Component | Latest |"
+            echo "| --- | --- |"
+            echo "| Caddy | \`$LATEST_CADDY\` |"
+            echo "| caddy-dns/porkbun | \`$LATEST_PORKBUN\` |"
+            echo "| caddy-docker-proxy | \`$LATEST_DOCKER_PROXY\` |"
+            echo
+            echo "After the candidate build succeeds, test \`:candidate\` on Unraid."
+          } > /tmp/upstream-body.md
+
+          existing=$(
+            gh issue list \
+              --state open \
+              --search "$ISSUE_TITLE in:title" \
+              --json number \
+              --jq '.[0].number // empty'
+          )
+
           if [[ -n "$existing" ]]; then
             gh issue edit "$existing" --body-file /tmp/upstream-body.md
           else
-            gh issue create --title "$ISSUE_TITLE" --body-file /tmp/upstream-body.md
+            gh issue create \
+              --title "$ISSUE_TITLE" \
+              --body-file /tmp/upstream-body.md
           fi
+
+      - name: Start newest candidate build
+        if: steps.candidate.outputs.up_to_date != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run candidate.yml --ref "${{ github.ref_name }}"
