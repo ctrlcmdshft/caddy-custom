@@ -17,7 +17,7 @@ on:
         default: ''
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: publish-candidate
@@ -117,7 +117,7 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Publish candidate only
+      - name: Publish tested image
         shell: bash
         run: |
           set -euo pipefail
@@ -125,5 +125,28 @@ jobs:
           docker push "$IMAGE:$BUILD_TAG"
           docker tag "$IMAGE:$BUILD_TAG" "$IMAGE:candidate"
           docker push "$IMAGE:candidate"
+          docker tag "$IMAGE:$BUILD_TAG" "$IMAGE:stable"
+          docker push "$IMAGE:stable"
 
           echo "Exact test tag: $IMAGE:$BUILD_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Updated tags: candidate, stable" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update README Caddy version
+        shell: bash
+        env:
+          CADDY_VERSION: ${{ steps.versions.outputs.caddy }}
+        run: |
+          set -euo pipefail
+
+          sed -i -E "s/^- Caddy \`[0-9]+\.[0-9]+\.[0-9]+\`$/- Caddy \`$CADDY_VERSION\`/" README.md
+
+          if git diff --quiet -- README.md; then
+            echo "README already lists Caddy $CADDY_VERSION."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update Caddy version to $CADDY_VERSION"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

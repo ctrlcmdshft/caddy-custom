@@ -33,8 +33,8 @@ Image: `ctrlcmdshft/caddy-custom`
 
 | Tag | Use |
 | --- | --- |
-| `stable` | Normal Unraid use. Updated only after a tested build is promoted. |
-| `candidate` | Trial builds before promotion. |
+| `stable` | Normal Unraid use. Updated after each successful tested build. |
+| `candidate` | Same tested image as `stable`, kept for visibility and rollback. |
 | `build-<run-id>-<attempt>` | Fixed build tag for testing or rollback. |
 
 There is no `latest` tag. Use `stable` in the Unraid template unless you are
@@ -83,12 +83,11 @@ Both Porkbun values are required for new certificates and future renewals.
 
 ## Releases
 
-The candidate workflow builds and tests the selected Caddy/plugin versions, then
-pushes a unique build tag and updates `candidate`. The promote workflow retags a
-tested build as `stable` without rebuilding it.
+A candidate workflow builds and tests the selected Caddy/plugin versions, then
+pushes a unique build tag and updates both `candidate` and `stable`.
 
-A weekly upstream check opens or updates a GitHub issue when newer Caddy or
-plugin releases are available. It does not build images or update `stable`.
+A weekly upstream check starts that workflow automatically when newer Caddy or
+plugin releases are available.
 
 Required repository settings:
 
