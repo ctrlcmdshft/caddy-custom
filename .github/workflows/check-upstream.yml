@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      GH_REPO: ${{ github.repository }}
       CURRENT_CADDY: '2.11.4'
       CURRENT_PORKBUN: 'v0.3.1'
       CURRENT_DOCKER_PROXY: 'v2.13.1'
