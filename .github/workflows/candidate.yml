@@ -58,10 +58,39 @@ jobs:
             gh api "repos/$repo/tags" --jq '.[0].name'
           }
 
+          caddy_base_images_exist() {
+            local version=$1
+
+            docker manifest inspect "caddy:${version}-builder" >/dev/null 2>&1 \
+              && docker manifest inspect "caddy:${version}-alpine" >/dev/null 2>&1
+          }
+
+          latest_buildable_caddy() {
+            local tag
+            local version
+
+            while IFS= read -r tag; do
+              version=${tag#v}
+
+              if caddy_base_images_exist "$version"; then
+                printf '%s\n' "$version"
+                return
+              fi
+
+              echo "Skipping Caddy $version because Docker base images are not available yet." >&2
+            done < <(
+              gh api "repos/caddyserver/caddy/releases" --paginate \
+                --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name'
+            )
+
+            echo "No buildable Caddy release found." >&2
+            return 1
+          }
+
           if [[ -n "$INPUT_CADDY" ]]; then
             caddy="$INPUT_CADDY"
           else
-            caddy=$(latest_release_or_tag caddyserver/caddy | sed 's/^v//')
+            caddy=$(latest_buildable_caddy)
           fi
 
           if [[ -n "$INPUT_PORKBUN" ]]; then
@@ -79,6 +108,7 @@ jobs:
           [[ "$caddy" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "$porkbun" =~ ^v[0-9][a-zA-Z0-9.+-]*$ ]]
           [[ "$docker_proxy" =~ ^v[0-9][a-zA-Z0-9.+-]*$ ]]
+          caddy_base_images_exist "$caddy"
 
           echo "caddy=$caddy" >> "$GITHUB_OUTPUT"
           echo "porkbun=$porkbun" >> "$GITHUB_OUTPUT"

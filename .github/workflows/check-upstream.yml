@@ -48,7 +48,36 @@ jobs:
             gh api "repos/$repo/tags" --jq '.[0].name'
           }
 
-          caddy=$(latest_release_or_tag caddyserver/caddy | sed 's/^v//')
+          caddy_base_images_exist() {
+            local version=$1
+
+            docker manifest inspect "caddy:${version}-builder" >/dev/null 2>&1 \
+              && docker manifest inspect "caddy:${version}-alpine" >/dev/null 2>&1
+          }
+
+          latest_buildable_caddy() {
+            local tag
+            local version
+
+            while IFS= read -r tag; do
+              version=${tag#v}
+
+              if caddy_base_images_exist "$version"; then
+                printf '%s\n' "$version"
+                return
+              fi
+
+              echo "Skipping Caddy $version because Docker base images are not available yet." >&2
+            done < <(
+              gh api "repos/caddyserver/caddy/releases" --paginate \
+                --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name'
+            )
+
+            echo "No buildable Caddy release found." >&2
+            return 1
+          }
+
+          caddy=$(latest_buildable_caddy)
           porkbun=$(latest_release_or_tag caddy-dns/porkbun)
           docker_proxy=$(latest_release_or_tag lucaslorentz/caddy-docker-proxy)
 
